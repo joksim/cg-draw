@@ -3,8 +3,6 @@ project(cg-draw)
 
 set(CMAKE_CXX_STANDARD 14)
 
-
-
 include(FetchContent)
 Set(FETCHCONTENT_QUIET FALSE)
 
