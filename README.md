@@ -1,5 +1,5 @@
 # CG-DRAW
-A basic SDL2 based project for drawing directly on to a surface (a.k.a. framebuffer).
+A simple SDL2 based project for drawing directly on to a surface (a.k.a. framebuffer).
 
 Intended for learning the basics of computer graphics (e.g. drawing). 
 
