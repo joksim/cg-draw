@@ -15,10 +15,16 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(SDL3)
 
+SET(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(BUILD_SHARED_LIBS FALSE)
-
-add_executable(cg-draw main.cpp)
-
-target_link_libraries(cg-draw SDL3::SDL3
+set(LIBS
+        SDL3::SDL3
 )
+
+file(COPY ${PROJECT_SOURCE_DIR}/res
+        DESTINATION ${PROJECT_BINARY_DIR}/src/
+)
+
+
+add_subdirectory(src)
