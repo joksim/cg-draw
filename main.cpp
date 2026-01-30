@@ -1,84 +1,92 @@
-#define SDL_MAIN_HANDLED
-#include <SDL2/SDL.h>
-// #include <stdint.h>
+#define SDL_MAIN_USE_CALLBACKS 1  /* use the callbacks instead of main() */
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_main.h>
+#include <cmath>
+#include <utility>
 
-SDL_Window* window;
-SDL_Surface* surface;
-uint32_t* pixels;
 
-#define WIDTH 960
-#define HEIGHT 480
+/* We will use this renderer to draw into this window every frame. */
+static SDL_Window *window = nullptr;
+static SDL_Renderer *renderer = nullptr;
+static Uint64 last_time = 0;
 
-void pixel(int x, int y, uint32_t color) {
-  if (x < 0 || x >= WIDTH || y < 0 || y >= HEIGHT) return;
-  pixels[y * WIDTH + x] = color;
-}
+const int WIN_WIDTH = 600;
+const int WIN_HEIGHT = 600;
 
-uint32_t rgb(uint8_t r, uint8_t g, uint8_t b) {
-  return (uint32_t)SDL_MapRGB(surface->format, r, g, b);
-}
 
-void line(int x0, int y0, int x1, int y1, uint32_t color) {
-  int dx = x1 - x0;
-  int dy = y1 - y0;
+int lines[10][4];
 
-  int steps = abs(dx) > abs(dy) ? abs(dx) : abs(dy);
-
-  if (!steps) steps++;  // avoid dividing by zero errors!
-  float xinc = dx / (float)steps;
-  float yinc = dy / (float)steps;
-
-  float x = x0;
-  float y = y0;
-
-  for (int i = 0; i <= steps; i++) {
-    pixel(roundf(x), roundf(y), color);
-    x += xinc;
-    y += yinc;
-  }
-}
-
-int main() {
-  SDL_Init(SDL_INIT_VIDEO);
-  window = SDL_CreateWindow("Framebuffer Rendering!", SDL_WINDOWPOS_UNDEFINED,
-                            SDL_WINDOWPOS_UNDEFINED, WIDTH, HEIGHT,
-                            SDL_WINDOW_SHOWN);
-  surface = SDL_GetWindowSurface(window);
-
-  pixels = (uint32_t*)surface->pixels;
-  bool quit = false;
-  SDL_Event e;
-
-  float x0 = 50;
-  float x1 = 600;
-  while (!quit) {
-    while (SDL_PollEvent(&e)) {
-      if (e.type == SDL_QUIT) {
-        quit = true;
-      }
+void line(int ax, int ay, int bx, int by) {
+    for (float t=0.; t<1.; t+=.02) {
+        int x = std::round( ax + (bx-ax)*t );
+        int y = std::round( ay + (by-ay)*t );
+        SDL_RenderPoint(renderer, x,y);
     }
-    SDL_LockSurface(surface);
+}
 
-    // Clean up the framebuffer with the specified color
-    memset(pixels, 0, sizeof(uint32_t) * WIDTH * HEIGHT);
+/* This function runs once at startup. */
+SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
+{
+    SDL_SetAppMetadata("CGIO-SDL3", "1.0", "com.cg-io.sdl3");
 
-    // Draw pixels
-    for (int y = 0; y < 255; y++) {
-      for (int x = 0; x < 255; x++) {
-        pixel(x + 100, y + 100, rgb(x, 0, y));
-      }
+    if (!SDL_Init(SDL_INIT_VIDEO)) {
+        SDL_Log("Couldn't initialize SDL: %s", SDL_GetError());
+        return SDL_APP_FAILURE;
     }
 
+    if (!SDL_CreateWindowAndRenderer("SDL3 Windows", WIN_WIDTH, WIN_HEIGHT, SDL_WINDOW_RESIZABLE, &window, &renderer)) {
+        SDL_Log("Couldn't create window/renderer: %s", SDL_GetError());
+        return SDL_APP_FAILURE;
+    }
+    SDL_SetRenderLogicalPresentation(renderer, WIN_WIDTH, WIN_HEIGHT, SDL_LOGICAL_PRESENTATION_LETTERBOX);
 
-    // Draw a moving line
-    line(x0, 50, x1, 400, rgb(255,255,255));
-    x0+=.1; if (x0>=WIDTH) x0=0;
-    x1-=.05; if (x1<0) x1=WIDTH;
+    for (int i=0;i<10;i++) {
+        lines[i][0] = random()%WIN_WIDTH;
+        lines[i][1] = random()%WIN_HEIGHT;
+        lines[i][2] = random()%WIN_WIDTH;
+        lines[i][3] = random()%WIN_HEIGHT;
 
-    SDL_UnlockSurface(surface);
-    SDL_UpdateWindowSurface(window);
-  }
+    }
 
-  SDL_DestroyWindow(window);
-  SDL_Quit();
+    last_time = SDL_GetTicks();
+
+    return SDL_APP_CONTINUE;  /* carry on with the program! */
+}
+
+/* This function runs when a new event (mouse input, keypresses, etc) occurs. */
+SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event)
+{
+    if (event->type == SDL_EVENT_QUIT) {
+        return SDL_APP_SUCCESS;  /* end the program, reporting success to the OS. */
+    }
+    return SDL_APP_CONTINUE;  /* carry on with the program! */
+}
+
+/* This function runs once per frame, and is the heart of the program. */
+SDL_AppResult SDL_AppIterate(void *appstate)
+{
+    const Uint64 now = SDL_GetTicks();
+    const float elapsed = ((float) (now - last_time)) / 1000.0f;  /* seconds since last iteration */
+
+    last_time = now;
+
+    /* as you can see from this, rendering draws over whatever was drawn before it. */
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_OPAQUE);  /* black, full alpha */
+    SDL_RenderClear(renderer);  /* start with a blank canvas. */
+
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, SDL_ALPHA_OPAQUE);  /* white, full alpha */
+
+    for (auto i=0; i<10; i++) {
+        line(lines[i][0],lines[i][1], lines[i][2], lines[i][3]);
+    }
+
+    SDL_RenderPresent(renderer);  /* put it all on the screen! */
+
+    return SDL_APP_CONTINUE;  /* carry on with the program! */
+}
+
+/* This function runs once at shutdown. */
+void SDL_AppQuit(void *appstate, SDL_AppResult result)
+{
+    /* SDL will clean up the window/renderer for us. */
 }
